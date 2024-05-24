@@ -17,12 +17,14 @@ const TasksPage = async () => {
   );
   const tasks: Task[] = await res.json();
 
+  const taskId = 7;
   return (
     <>
       <h1>Tasks for List</h1>
       <table className="table table-bordered">
         <thead>
           <tr>
+            <th>taskId</th>
             <th>ID</th>
             <th>Title</th>
             <th>Completed</th>
@@ -32,6 +34,9 @@ const TasksPage = async () => {
         <tbody>
           {tasks.map((task) => (
             <tr key={task.id}>
+              <td>
+                <Link href={`/lists/listId/tasks/${task.id}`}>{task.id}</Link>
+              </td>
               <td>{task.id}</td>
               <td>{task.title}</td>
               <td>{task.completed ? "Yes" : "No"}</td>

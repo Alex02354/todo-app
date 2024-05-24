@@ -26,9 +26,7 @@ const ListsPage = async () => {
             <tr key={list.id}>
               <td>{list.id}</td>
               <td>
-                <Link href={`/lists/listId/tasks?listId=${list.id}`}>
-                  {list.name}
-                </Link>
+                <Link href={`/lists/${list.id}`}>{list.name}</Link>
               </td>
             </tr>
           ))}
