@@ -13,25 +13,29 @@ const ListsPage = async () => {
   const lists: List[] = await res.json();
   return (
     <>
-      <h1>Lists</h1>
-      <table className="table">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Name</th>
-          </tr>
-        </thead>
-        <tbody>
-          {lists.map((list) => (
-            <tr className="hover" key={list.id}>
-              <td>{list.id}</td>
-              <td>
-                <Link href={`/lists/${list.id}`}>{list.name}</Link>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <main className="max-w-4xl mx-auto mt-4">
+        <div className="text-center my-5 flex flex-col gap-4">
+          <h1 className="text-2xl font-bold">Lists</h1>
+          <table className="table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Name</th>
+              </tr>
+            </thead>
+            <tbody>
+              {lists.map((list) => (
+                <tr className="hover" key={list.id}>
+                  <td>{list.id}</td>
+                  <td>
+                    <Link href={`/lists/${list.id}`}>{list.name}</Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </main>
     </>
   );
 };

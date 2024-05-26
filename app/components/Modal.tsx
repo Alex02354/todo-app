@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+
 interface ModalProps {
   modalOpen: boolean;
   setModalOpen: (open: boolean) => boolean | void;
@@ -5,6 +7,27 @@ interface ModalProps {
 }
 
 const Modal: React.FC<ModalProps> = ({ modalOpen, setModalOpen, children }) => {
+  useEffect(() => {
+    const handleScroll = () => {
+      if (modalOpen) {
+        const scrollbarWidth =
+          window.innerWidth - document.documentElement.clientWidth;
+        document.body.style.paddingRight = `${scrollbarWidth}px`;
+        document.body.style.overflow = "hidden";
+      } else {
+        document.body.style.paddingRight = "";
+        document.body.style.overflow = "";
+      }
+    };
+
+    handleScroll(); // Initial call
+
+    return () => {
+      document.body.style.paddingRight = "";
+      document.body.style.overflow = "";
+    };
+  }, [modalOpen]);
+
   return (
     <div className={`modal ${modalOpen ? "modal-open" : ""}`}>
       <div className="modal-box relative">
@@ -14,7 +37,6 @@ const Modal: React.FC<ModalProps> = ({ modalOpen, setModalOpen, children }) => {
         >
           ✕
         </label>
-
         {children}
       </div>
     </div>
