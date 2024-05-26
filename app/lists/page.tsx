@@ -14,7 +14,7 @@ const ListsPage = async () => {
   return (
     <>
       <h1>Lists</h1>
-      <table className="table table-bordered">
+      <table className="table">
         <thead>
           <tr>
             <th>ID</th>
@@ -23,7 +23,7 @@ const ListsPage = async () => {
         </thead>
         <tbody>
           {lists.map((list) => (
-            <tr key={list.id}>
+            <tr className="hover" key={list.id}>
               <td>{list.id}</td>
               <td>
                 <Link href={`/lists/${list.id}`}>{list.name}</Link>
