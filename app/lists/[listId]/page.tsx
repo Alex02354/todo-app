@@ -87,6 +87,9 @@ const ListPage = ({ params }: { params: { listId: string } }) => {
   const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
   const [refreshTasks, setRefreshTasks] = useState<boolean>(false);
   const [modalOpen, setModalOpen] = useState<boolean>(false);
+  const [filter, setFilter] = useState<"all" | "in-progress" | "completed">(
+    "all"
+  );
   const { listId } = useParams();
 
   useEffect(() => {
@@ -183,11 +186,53 @@ const ListPage = ({ params }: { params: { listId: string } }) => {
     setRefreshTasks((prev) => !prev);
   };
 
+  const [search, setSearch] = useState("");
+
   return (
     <>
       <main className="max-w-4xl mx-auto mt-4">
         <div className="text-center my-5 flex flex-col gap-4">
           <h1 className="text-2xl font-bold">Tasks for List {params.listId}</h1>
+        </div>
+        <label className="input input-bordered flex items-center gap-2">
+          <input
+            type="text"
+            className="grow"
+            placeholder="Search"
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 16 16"
+            fill="currentColor"
+            className="w-4 h-4 opacity-70"
+          >
+            <path
+              fillRule="evenodd"
+              d="M9.965 11.026a5 5 0 1 1 1.06-1.06l2.755 2.754a.75.75 0 1 1-1.06 1.06l-2.755-2.754ZM10.5 7a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z"
+              clipRule="evenodd"
+            />
+          </svg>
+        </label>
+        <div className="flex justify-center m-5 gap-10">
+          <button
+            className="btn btn-outline btn-primary"
+            onClick={() => setFilter("all")}
+          >
+            ALL
+          </button>
+          <button
+            className="btn btn-outline btn-secondary"
+            onClick={() => setFilter("in-progress")}
+          >
+            IN PROGRESS
+          </button>
+          <button
+            className="btn btn-outline btn-accent"
+            onClick={() => setFilter("completed")}
+          >
+            COMPLETED
+          </button>
         </div>
         <table className="table">
           <thead>
@@ -199,75 +244,86 @@ const ListPage = ({ params }: { params: { listId: string } }) => {
             </tr>
           </thead>
           <tbody>
-            {tasks.map((task) => (
-              <tr className="hover" key={task.id}>
-                <td>
-                  <Link href={`/lists/${params.listId}/tasks/${task.id}`}>
-                    {task.title}
-                  </Link>
-                </td>
-                <td>{task.description}</td>
-                <td>{task.completed ? "Yes" : "No"}</td>
-                <td>{formatDate(task.deadlineDate as Date)}</td>
-                <td className="flex gap-5">
-                  <FiEdit
-                    onClick={() => {
-                      setOpenModalEdit(true);
-                      setTaskToEdit(task);
-                    }}
-                    cursor="pointer"
-                    className="text-blue-500"
-                    size={18}
-                  />
-                  <Modal
-                    modalOpen={openModalEdit}
-                    setModalOpen={setOpenModalEdit}
-                  >
-                    <form onSubmit={handleSubmitEditTodo}>
-                      <h3 className="font-bold text-lg">Edit Task</h3>
+            {tasks
+              .filter((task) => {
+                if (filter === "in-progress") return !task.completed;
+                if (filter === "completed") return task.completed;
+                return true;
+              })
+              .filter((task) => {
+                return search.toLowerCase() === ""
+                  ? task
+                  : task.title.toLowerCase().includes(search);
+              })
+              .map((task) => (
+                <tr className="hover" key={task.id}>
+                  <td>
+                    <Link href={`/lists/${params.listId}/tasks/${task.id}`}>
+                      {task.title}
+                    </Link>
+                  </td>
+                  <td>{task.description}</td>
+                  <td>{task.completed ? "Yes" : "No"}</td>
+                  <td>{formatDate(task.deadlineDate as Date)}</td>
+                  <td className="flex gap-5">
+                    <FiEdit
+                      onClick={() => {
+                        setOpenModalEdit(true);
+                        setTaskToEdit(task);
+                      }}
+                      cursor="pointer"
+                      className="text-blue-500"
+                      size={18}
+                    />
+                    <Modal
+                      modalOpen={openModalEdit}
+                      setModalOpen={setOpenModalEdit}
+                    >
+                      <form onSubmit={handleSubmitEditTodo}>
+                        <h3 className="font-bold text-lg">Edit Task</h3>
+                        <div className="modal-action">
+                          <input
+                            value={taskToEdit ? taskToEdit.title : ""}
+                            onChange={(e) =>
+                              setTaskToEdit((prev) =>
+                                prev ? { ...prev, title: e.target.value } : null
+                              )
+                            }
+                            type="text"
+                            placeholder="Type here"
+                            className="input input-bordered w-full"
+                          />
+                          <button type="submit" className="btn">
+                            Submit
+                          </button>
+                        </div>
+                      </form>
+                    </Modal>
+                    <FiTrash2
+                      onClick={() => setOpenModalDeleted(true)}
+                      cursor="pointer"
+                      className="text-red-500"
+                      size={18}
+                    />
+                    <Modal
+                      modalOpen={openModalDeleted}
+                      setModalOpen={setOpenModalDeleted}
+                    >
+                      <h3 className="text-lg">
+                        Are you sure you want to delete this task?
+                      </h3>
                       <div className="modal-action">
-                        <input
-                          value={taskToEdit ? taskToEdit.title : ""}
-                          onChange={(e) =>
-                            setTaskToEdit((prev) =>
-                              prev ? { ...prev, title: e.target.value } : null
-                            )
-                          }
-                          type="text"
-                          placeholder="Type here"
-                          className="input input-bordered w-full"
-                        />
-                        <button type="submit" className="btn">
-                          Submit
+                        <button
+                          onClick={() => handleDeleteTask(task.id)}
+                          className="btn"
+                        >
+                          Yes
                         </button>
                       </div>
-                    </form>
-                  </Modal>
-                  <FiTrash2
-                    onClick={() => setOpenModalDeleted(true)}
-                    cursor="pointer"
-                    className="text-red-500"
-                    size={18}
-                  />
-                  <Modal
-                    modalOpen={openModalDeleted}
-                    setModalOpen={setOpenModalDeleted}
-                  >
-                    <h3 className="text-lg">
-                      Are you sure you want to delete this task?
-                    </h3>
-                    <div className="modal-action">
-                      <button
-                        onClick={() => handleDeleteTask(task.id)}
-                        className="btn"
-                      >
-                        Yes
-                      </button>
-                    </div>
-                  </Modal>
-                </td>
-              </tr>
-            ))}
+                    </Modal>
+                  </td>
+                </tr>
+              ))}
           </tbody>
         </table>
         <div>
