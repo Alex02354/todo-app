@@ -4,8 +4,8 @@ import { SubmitHandler, useForm } from "react-hook-form";
 import { z } from "zod";
 
 const schema = z.object({
-  email: z.string().email(),
-  password: z.string().min(8),
+  listId: z.string(),
+  title: z.string().min(8),
 });
 
 type FormFields = z.infer<typeof schema>;
@@ -17,9 +17,6 @@ const Form = () => {
     setError,
     formState: { errors, isSubmitting },
   } = useForm<FormFields>({
-    defaultValues: {
-      email: "test@email.com",
-    },
     resolver: zodResolver(schema),
   });
 
@@ -36,13 +33,13 @@ const Form = () => {
 
   return (
     <form className="tutorial gap-2" onSubmit={handleSubmit(onSubmit)}>
-      <input {...register("email")} type="text" placeholder="Email" />
-      {errors.email && (
-        <div className="text-red-500">{errors.email.message}</div>
+      <input {...register("listId")} type="number" placeholder="listId" />
+      {errors.listId && (
+        <div className="text-red-500">{errors.listId.message}</div>
       )}
-      <input {...register("password")} type="password" placeholder="Password" />
-      {errors.password && (
-        <div className="text-red-500">{errors.password.message}</div>
+      <input {...register("title")} type="password" placeholder="Title" />
+      {errors.title && (
+        <div className="text-red-500">{errors.title.message}</div>
       )}
       <button disabled={isSubmitting} type="submit">
         {isSubmitting ? "Loading..." : "Submit"}

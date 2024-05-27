@@ -1,11 +1,13 @@
 "use client";
 import React, { useEffect, useState, FormEventHandler } from "react";
 import Link from "next/link";
-//import AddTask from "@/app/components/AddTask"; // Adjust the path as needed
 import { FiEdit, FiTrash2 } from "react-icons/fi";
 import Modal from "@/app/components/Modal";
 import { useParams } from "next/navigation";
 import { AiOutlinePlus } from "react-icons/ai";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm, SubmitHandler } from "react-hook-form";
+import { z } from "zod";
 
 interface Task {
   id: number;
@@ -19,14 +21,25 @@ interface Task {
 export const addTodo = async ({
   params,
 }: {
-  params: { listId: string; title: string };
+  params: {
+    listId: string;
+    title: string;
+    completed: boolean;
+    description: string;
+    deadlineDate: Date;
+  };
 }) => {
   const res = await fetch(
     `https://66502dadec9b4a4a603102b5.mockapi.io/lists/${params.listId}/tasks`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: params.title }), // Send only the title in the body
+      body: JSON.stringify({
+        title: params.title,
+        completed: params.completed,
+        description: params.description,
+        deadlineDate: params.deadlineDate.getTime() / 1000, // Convert to Unix timestamp
+      }),
     }
   );
   const newTodo = await res.json();
@@ -36,7 +49,11 @@ export const addTodo = async ({
 export const editTodo = async ({
   params,
 }: {
-  params: { listId: string; title: string; id: number };
+  params: {
+    listId: string;
+    title: string;
+    id: number;
+  };
 }) => {
   const res = await fetch(
     `https://66502dadec9b4a4a603102b5.mockapi.io/lists/${params.listId}/tasks/${params.id}`,
@@ -68,10 +85,9 @@ const ListPage = ({ params }: { params: { listId: string } }) => {
   const [openModalEdit, setOpenModalEdit] = useState<boolean>(false);
   const [openModalDeleted, setOpenModalDeleted] = useState<boolean>(false);
   const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
-  const [refreshTasks, setRefreshTasks] = useState<boolean>(false); // State to trigger refresh
+  const [refreshTasks, setRefreshTasks] = useState<boolean>(false);
   const [modalOpen, setModalOpen] = useState<boolean>(false);
-  const [newTaskValue, setNewTaskValue] = useState<string>("");
-  const { listId } = useParams(); // Get the listId from the URL parameters
+  const { listId } = useParams();
 
   useEffect(() => {
     const fetchTasks = async () => {
@@ -83,7 +99,6 @@ const ListPage = ({ params }: { params: { listId: string } }) => {
       );
       const tasks: Task[] = await res.json();
 
-      // Convert deadlineDate from Unix timestamp to Date object
       const convertedTasks = tasks.map((task) => ({
         ...task,
         deadlineDate: new Date(Number(task.deadlineDate) * 1000),
@@ -96,25 +111,51 @@ const ListPage = ({ params }: { params: { listId: string } }) => {
   }, [params.listId, refreshTasks]);
 
   const formatDate = (date: Date) => {
-    // Convert the date to string and remove the time zone part
     const dateString = date.toString();
     const withoutTimeZone = dateString.split(" ").slice(0, 5).join(" ");
     return withoutTimeZone;
   };
 
-  const handleSubmitNewTodo: FormEventHandler<HTMLFormElement> = async (e) => {
-    e.preventDefault();
+  const schema = z.object({
+    title: z.string().min(1, "Title is required"),
+    completed: z.boolean(),
+    description: z.string().min(1, "Description is required"),
+    deadlineDate: z.preprocess((arg) => {
+      if (typeof arg === "string" || arg instanceof Date) return new Date(arg);
+    }, z.date({ invalid_type_error: "Invalid date" })),
+  });
+
+  type FormFields = z.infer<typeof schema>;
+
+  const {
+    register,
+    handleSubmit,
+    setError,
+    formState: { errors, isSubmitting },
+  } = useForm<FormFields>({
+    resolver: zodResolver(schema),
+  });
+
+  const onSubmit: SubmitHandler<FormFields> = async (data) => {
     if (typeof listId === "string") {
-      // Ensure listId is a string
-      await addTodo({
-        params: {
-          title: newTaskValue,
-          listId: listId,
-        },
-      });
-      setNewTaskValue("");
-      setModalOpen(false);
-      setRefreshTasks((prev) => !prev); // Toggle refreshTasks state to trigger re-fetching
+      try {
+        await addTodo({
+          params: {
+            listId: listId,
+            title: data.title,
+            completed: data.completed,
+            description: data.description,
+            deadlineDate: data.deadlineDate,
+          },
+        });
+        setModalOpen(false);
+        setRefreshTasks((prev) => !prev);
+      } catch (error) {
+        setError("root", {
+          type: "manual",
+          message: "Failed to add task",
+        });
+      }
     } else {
       console.error("listId is not a valid string");
     }
@@ -132,14 +173,14 @@ const ListPage = ({ params }: { params: { listId: string } }) => {
       });
       setTaskToEdit(null);
       setOpenModalEdit(false);
-      setRefreshTasks((prev) => !prev); // Toggle refreshTasks state to trigger re-fetching
+      setRefreshTasks((prev) => !prev);
     }
   };
 
   const handleDeleteTask = async (id: number) => {
     await deleteTodo({ params: { listId: params.listId, id } });
     setOpenModalDeleted(false);
-    setRefreshTasks((prev) => !prev); // Toggle refreshTasks state to trigger re-fetching
+    setRefreshTasks((prev) => !prev);
   };
 
   return (
@@ -238,20 +279,69 @@ const ListPage = ({ params }: { params: { listId: string } }) => {
             <AiOutlinePlus className="ml-2" size={18} />
           </button>
           <Modal modalOpen={modalOpen} setModalOpen={setModalOpen}>
-            <form onSubmit={handleSubmitNewTodo}>
-              <h3 className="font-bold text-lg">Add new task</h3>
-              <div className="modal-action">
+            <form
+              className="flex flex-col gap-4 p-4"
+              onSubmit={handleSubmit(onSubmit)}
+            >
+              <h3 className="text-xl font-bold mb-4">Add New Task</h3>
+              <div className="flex flex-col gap-2">
+                <label className="label">Title</label>
                 <input
-                  value={newTaskValue}
-                  onChange={(e) => setNewTaskValue(e.target.value)}
+                  {...register("title")}
                   type="text"
-                  placeholder="Type here"
+                  placeholder="Title"
                   className="input input-bordered w-full"
                 />
-                <button type="submit" className="btn">
-                  Submit
-                </button>
+                {errors.title && (
+                  <div className="text-red-500">{errors.title.message}</div>
+                )}
               </div>
+              <div className="flex flex-col gap-2">
+                <label className="label">Description</label>
+                <input
+                  {...register("description")}
+                  type="text"
+                  placeholder="Description"
+                  className="input input-bordered w-full"
+                />
+                {errors.description && (
+                  <div className="text-red-500">
+                    {errors.description.message}
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-col gap-2">
+                <label className="label">Deadline Date</label>
+                <input
+                  {...register("deadlineDate")}
+                  type="date"
+                  placeholder="Deadline Date"
+                  className="input input-bordered w-full"
+                />
+                {errors.deadlineDate && (
+                  <div className="text-red-500">
+                    {errors.deadlineDate.message}
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="label">Completed</label>
+                <input
+                  {...register("completed")}
+                  type="checkbox"
+                  className="checkbox"
+                />
+              </div>
+              <button
+                disabled={isSubmitting}
+                type="submit"
+                className="btn btn-primary mt-4"
+              >
+                {isSubmitting ? "Loading..." : "Submit"}
+              </button>
+              {errors.root && (
+                <div className="text-red-500 mt-2">{errors.root.message}</div>
+              )}
             </form>
           </Modal>
         </div>
