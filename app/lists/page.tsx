@@ -11,29 +11,44 @@ const ListsPage = async () => {
     cache: "no-store",
   });
   const lists: List[] = await res.json();
+
   return (
     <>
-      <main className="max-w-4xl mx-auto mt-4">
+      <main className="max-w-8xl mx-auto mt-10">
         <div className="text-center my-5 flex flex-col gap-4">
-          <h1 className="text-2xl font-bold">Lists</h1>
-          <table className="table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Name</th>
-              </tr>
-            </thead>
-            <tbody>
-              {lists.map((list) => (
-                <tr className="hover" key={list.id}>
-                  <td>{list.id}</td>
-                  <td>
-                    <Link href={`/lists/${list.id}`}>{list.name}</Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <h1 className="text-3xl font-bold">Your Lists</h1>
+          <div className="flex flex-wrap gap-4 mt-8 justify-center">
+            {lists.map((list, index) => (
+              <div
+                key={list.id}
+                className="card card-compact w-96 bg-base-100 shadow-xl"
+              >
+                <figure>
+                  <img
+                    src={`/assets/${(index % 3) + 1}.jpg`}
+                    className="w-full h-full object-cover"
+                  />
+                </figure>
+                <div className="card-body">
+                  <h2 className="card-title">{list.name}</h2>
+                  <div className="text-left">
+                    {" "}
+                    <p>
+                      Lorem ipsum dolor sit amet, consectetur adipiscing elit,
+                      sed do eiusmod tempor.
+                    </p>
+                  </div>
+                  <div className="card-actions justify-end">
+                    <Link href={`/lists/${list.id}`}>
+                      <button className="btn btn-primary mt-2">
+                        View {list.name}
+                      </button>
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </main>
     </>

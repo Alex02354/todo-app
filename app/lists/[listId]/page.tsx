@@ -1,13 +1,13 @@
 "use client";
-import React, { useEffect, useState, FormEventHandler } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { FiEdit, FiTrash2 } from "react-icons/fi";
-import Modal from "@/app/components/Modal";
-import { useParams } from "next/navigation";
-import { AiOutlinePlus } from "react-icons/ai";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, SubmitHandler } from "react-hook-form";
-import { z } from "zod";
+import TaskFilter from "../../components/TaskFilter";
+import TaskSearch from "../../components/TaskSearch";
+import AddTask from "@/app/components/AddTask";
+import DeleteTask from "@/app/components/DeleteTask";
+import EditTask from "@/app/components/EditTask";
+import CompleteTask from "@/app/components/CompleteTask";
 
 interface Task {
   id: number;
@@ -18,79 +18,16 @@ interface Task {
   deadlineDate: Date | number;
 }
 
-export const addTodo = async ({
-  params,
-}: {
-  params: {
-    listId: string;
-    title: string;
-    completed: boolean;
-    description: string;
-    deadlineDate: Date;
-  };
-}) => {
-  const res = await fetch(
-    `https://66502dadec9b4a4a603102b5.mockapi.io/lists/${params.listId}/tasks`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: params.title,
-        completed: params.completed,
-        description: params.description,
-        deadlineDate: params.deadlineDate.getTime() / 1000, // Convert to Unix timestamp
-      }),
-    }
-  );
-  const newTodo = await res.json();
-  return newTodo;
-};
-
-export const editTodo = async ({
-  params,
-}: {
-  params: {
-    listId: string;
-    title: string;
-    id: number;
-  };
-}) => {
-  const res = await fetch(
-    `https://66502dadec9b4a4a603102b5.mockapi.io/lists/${params.listId}/tasks/${params.id}`,
-    {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: params.title }), // Send only the title in the body
-    }
-  );
-  const updatedTodo = await res.json();
-  return updatedTodo;
-};
-
-export const deleteTodo = async ({
-  params,
-}: {
-  params: { listId: string; id: number };
-}) => {
-  await fetch(
-    `https://66502dadec9b4a4a603102b5.mockapi.io/lists/${params.listId}/tasks/${params.id}`,
-    {
-      method: "DELETE",
-    }
-  );
-};
-
 const ListPage = ({ params }: { params: { listId: string } }) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [openModalEdit, setOpenModalEdit] = useState<boolean>(false);
   const [openModalDeleted, setOpenModalDeleted] = useState<boolean>(false);
   const [taskToEdit, setTaskToEdit] = useState<Task | null>(null);
+  const [taskToDelete, setTaskToDelete] = useState<Task | null>(null);
   const [refreshTasks, setRefreshTasks] = useState<boolean>(false);
-  const [modalOpen, setModalOpen] = useState<boolean>(false);
   const [filter, setFilter] = useState<"all" | "in-progress" | "completed">(
     "all"
   );
-  const { listId } = useParams();
 
   useEffect(() => {
     const fetchTasks = async () => {
@@ -119,128 +56,60 @@ const ListPage = ({ params }: { params: { listId: string } }) => {
     return withoutTimeZone;
   };
 
-  const schema = z.object({
-    title: z.string().min(1, "Title is required"),
-    completed: z.boolean(),
-    description: z.string().min(1, "Description is required"),
-    deadlineDate: z.preprocess((arg) => {
-      if (typeof arg === "string" || arg instanceof Date) return new Date(arg);
-    }, z.date({ invalid_type_error: "Invalid date" })),
-  });
-
-  type FormFields = z.infer<typeof schema>;
-
-  const {
-    register,
-    handleSubmit,
-    setError,
-    formState: { errors, isSubmitting },
-  } = useForm<FormFields>({
-    resolver: zodResolver(schema),
-  });
-
-  const onSubmit: SubmitHandler<FormFields> = async (data) => {
-    if (typeof listId === "string") {
-      try {
-        await addTodo({
-          params: {
-            listId: listId,
-            title: data.title,
-            completed: data.completed,
-            description: data.description,
-            deadlineDate: data.deadlineDate,
-          },
-        });
-        setModalOpen(false);
-        setRefreshTasks((prev) => !prev);
-      } catch (error) {
-        setError("root", {
-          type: "manual",
-          message: "Failed to add task",
-        });
-      }
-    } else {
-      console.error("listId is not a valid string");
-    }
-  };
-
-  const handleSubmitEditTodo: FormEventHandler<HTMLFormElement> = async (e) => {
-    e.preventDefault();
-    if (taskToEdit) {
-      await editTodo({
-        params: {
-          title: taskToEdit.title,
-          listId: params.listId,
-          id: taskToEdit.id,
-        },
-      });
-      setTaskToEdit(null);
-      setOpenModalEdit(false);
-      setRefreshTasks((prev) => !prev);
-    }
-  };
-
-  const handleDeleteTask = async (id: number) => {
-    await deleteTodo({ params: { listId: params.listId, id } });
-    setOpenModalDeleted(false);
-    setRefreshTasks((prev) => !prev);
+  const handleCompleteTask = (updatedTask: Task) => {
+    setTasks((prevTasks) =>
+      prevTasks.map((t) =>
+        t.id === updatedTask.id ? { ...t, completed: updatedTask.completed } : t
+      )
+    );
   };
 
   const [search, setSearch] = useState("");
 
+  const [listName, setListName] = useState<string>("");
+
+  useEffect(() => {
+    const fetchListName = async () => {
+      const res = await fetch(
+        `https://66502dadec9b4a4a603102b5.mockapi.io/lists/${params.listId}`,
+        {
+          cache: "no-store",
+        }
+      );
+      const list = await res.json();
+      setListName(list.name);
+    };
+
+    fetchListName();
+  }, [params.listId]);
+
   return (
     <>
-      <main className="max-w-4xl mx-auto mt-4">
+      <main className="max-w-4xl mx-auto mt-10">
         <div className="text-center my-5 flex flex-col gap-4">
-          <h1 className="text-2xl font-bold">Tasks for List {params.listId}</h1>
+          <h1 className="text-3xl font-bold">{listName}</h1>
         </div>
-        <label className="input input-bordered flex items-center gap-2">
-          <input
-            type="text"
-            className="grow"
-            placeholder="Search"
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 16 16"
-            fill="currentColor"
-            className="w-4 h-4 opacity-70"
-          >
-            <path
-              fillRule="evenodd"
-              d="M9.965 11.026a5 5 0 1 1 1.06-1.06l2.755 2.754a.75.75 0 1 1-1.06 1.06l-2.755-2.754ZM10.5 7a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z"
-              clipRule="evenodd"
-            />
-          </svg>
-        </label>
-        <div className="flex justify-center m-5 gap-10">
-          <button
-            className="btn btn-outline btn-primary"
-            onClick={() => setFilter("all")}
-          >
-            ALL
-          </button>
-          <button
-            className="btn btn-outline btn-secondary"
-            onClick={() => setFilter("in-progress")}
-          >
-            IN PROGRESS
-          </button>
-          <button
-            className="btn btn-outline btn-accent"
-            onClick={() => setFilter("completed")}
-          >
-            COMPLETED
-          </button>
+
+        <div className="flex justify-between my-10">
+          <TaskFilter filter={filter} setFilter={setFilter} />
+          <TaskSearch setSearch={setSearch} />
         </div>
-        <table className="table">
-          <thead>
+
+        <table className="table border">
+          <thead className="bg-gray-300">
             <tr>
-              <th>Title</th>
-              <th>Description</th>
-              <th>Completed</th>
-              <th>DeadlineDate</th>
+              <th className="w-40 text-sm text-black font-semibold">Title</th>
+              <th className="w-40 text-sm text-black font-semibold">
+                Description
+              </th>
+              <th className="w-40 text-sm text-black font-semibold">
+                Completed
+              </th>
+              <th className="w-60 text-sm text-black font-semibold">
+                Deadline Date
+              </th>
+              <th className="w-20 text-sm text-black font-semibold">Edit</th>
+              <th className="w-20 text-sm text-black font-semibold">Delete</th>
             </tr>
           </thead>
           <tbody>
@@ -257,15 +126,27 @@ const ListPage = ({ params }: { params: { listId: string } }) => {
               })
               .map((task) => (
                 <tr className="hover" key={task.id}>
-                  <td>
+                  <td className="w-40">
                     <Link href={`/lists/${params.listId}/tasks/${task.id}`}>
                       {task.title}
                     </Link>
                   </td>
-                  <td>{task.description}</td>
-                  <td>{task.completed ? "Yes" : "No"}</td>
-                  <td>{formatDate(task.deadlineDate as Date)}</td>
-                  <td className="flex gap-5">
+                  <td className="w-40">{task.description}</td>
+                  <td className="w-40">
+                    <div className="flex flex-row gap-5">
+                      <CompleteTask
+                        task={task}
+                        listId={params.listId}
+                        onCompleteTask={handleCompleteTask}
+                      />
+                      {task.completed ? "Yes" : "No"}
+                    </div>
+                  </td>
+                  <td className="w-60">
+                    {formatDate(task.deadlineDate as Date)}
+                  </td>
+
+                  <td className="w-20">
                     <FiEdit
                       onClick={() => {
                         setOpenModalEdit(true);
@@ -273,133 +154,43 @@ const ListPage = ({ params }: { params: { listId: string } }) => {
                       }}
                       cursor="pointer"
                       className="text-blue-500"
-                      size={18}
+                      size={20}
                     />
-                    <Modal
-                      modalOpen={openModalEdit}
-                      setModalOpen={setOpenModalEdit}
-                    >
-                      <form onSubmit={handleSubmitEditTodo}>
-                        <h3 className="font-bold text-lg">Edit Task</h3>
-                        <div className="modal-action">
-                          <input
-                            value={taskToEdit ? taskToEdit.title : ""}
-                            onChange={(e) =>
-                              setTaskToEdit((prev) =>
-                                prev ? { ...prev, title: e.target.value } : null
-                              )
-                            }
-                            type="text"
-                            placeholder="Type here"
-                            className="input input-bordered w-full"
-                          />
-                          <button type="submit" className="btn">
-                            Submit
-                          </button>
-                        </div>
-                      </form>
-                    </Modal>
+                    <EditTask
+                      openModal={openModalEdit}
+                      onCloseModal={() => setOpenModalEdit(false)}
+                      onSubmitEdit={() => setRefreshTasks((prev) => !prev)}
+                      taskToEdit={taskToEdit}
+                      listId={params.listId}
+                    />
+                  </td>
+                  <td className="w-20">
                     <FiTrash2
-                      onClick={() => setOpenModalDeleted(true)}
+                      onClick={() => {
+                        setTaskToDelete(task);
+                        setOpenModalDeleted(true);
+                      }}
                       cursor="pointer"
                       className="text-red-500"
-                      size={18}
+                      size={20}
                     />
-                    <Modal
-                      modalOpen={openModalDeleted}
-                      setModalOpen={setOpenModalDeleted}
-                    >
-                      <h3 className="text-lg">
-                        Are you sure you want to delete this task?
-                      </h3>
-                      <div className="modal-action">
-                        <button
-                          onClick={() => handleDeleteTask(task.id)}
-                          className="btn"
-                        >
-                          Yes
-                        </button>
-                      </div>
-                    </Modal>
+                    <DeleteTask
+                      openModal={openModalDeleted}
+                      onCloseModal={() => setOpenModalDeleted(false)}
+                      onDeleteTask={() => setRefreshTasks((prev) => !prev)}
+                      taskToDelete={taskToDelete}
+                      listId={params.listId}
+                    />
                   </td>
                 </tr>
               ))}
           </tbody>
         </table>
-        <div>
-          <button
-            onClick={() => setModalOpen(true)}
-            className="btn btn-primary w-full"
-          >
-            ADD NEW TASK
-            <AiOutlinePlus className="ml-2" size={18} />
-          </button>
-          <Modal modalOpen={modalOpen} setModalOpen={setModalOpen}>
-            <form
-              className="flex flex-col gap-4 p-4"
-              onSubmit={handleSubmit(onSubmit)}
-            >
-              <h3 className="text-xl font-bold mb-4">Add New Task</h3>
-              <div className="flex flex-col gap-2">
-                <label className="label">Title</label>
-                <input
-                  {...register("title")}
-                  type="text"
-                  placeholder="Title"
-                  className="input input-bordered w-full"
-                />
-                {errors.title && (
-                  <div className="text-red-500">{errors.title.message}</div>
-                )}
-              </div>
-              <div className="flex flex-col gap-2">
-                <label className="label">Description</label>
-                <input
-                  {...register("description")}
-                  type="text"
-                  placeholder="Description"
-                  className="input input-bordered w-full"
-                />
-                {errors.description && (
-                  <div className="text-red-500">
-                    {errors.description.message}
-                  </div>
-                )}
-              </div>
-              <div className="flex flex-col gap-2">
-                <label className="label">Deadline Date</label>
-                <input
-                  {...register("deadlineDate")}
-                  type="date"
-                  placeholder="Deadline Date"
-                  className="input input-bordered w-full"
-                />
-                {errors.deadlineDate && (
-                  <div className="text-red-500">
-                    {errors.deadlineDate.message}
-                  </div>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                <label className="label">Completed</label>
-                <input
-                  {...register("completed")}
-                  type="checkbox"
-                  className="checkbox"
-                />
-              </div>
-              <button
-                disabled={isSubmitting}
-                type="submit"
-                className="btn btn-primary mt-4"
-              >
-                {isSubmitting ? "Loading..." : "Submit"}
-              </button>
-              {errors.root && (
-                <div className="text-red-500 mt-2">{errors.root.message}</div>
-              )}
-            </form>
-          </Modal>
+        <div className="mt-10">
+          <AddTask
+            listId={params.listId}
+            onSubmitSuccess={() => setRefreshTasks((prev) => !prev)}
+          />
         </div>
       </main>
     </>
