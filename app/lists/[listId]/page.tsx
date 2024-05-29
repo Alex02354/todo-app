@@ -126,7 +126,7 @@ const ListPage = ({ params }: { params: { listId: string } }) => {
               })
               .map((task) => (
                 <tr className="hover" key={task.id}>
-                  <td className="w-40">
+                  <td className="w-40 underline text-blue-700">
                     <Link href={`/lists/${params.listId}/tasks/${task.id}`}>
                       {task.title}
                     </Link>
